@@ -47,6 +47,7 @@ function buildLibrary (imports) {
   for (var k in imports) {
     var i = imports[k];
     out.push("(function (_ownerDocument) {");
+    out.push("");
     out.push(i.js);
     out.push("})(__loadHTML(" + JSON.stringify(i.html) + "));");
     out.push("");
