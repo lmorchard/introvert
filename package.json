@@ -1,0 +1,22 @@
+{
+  "name": "introvert",
+  "version": "0.0.1",
+  "description": "Bundle web components into minimal JS libraries",
+  "main": "index.js",
+  "scripts": {
+    "test": "./node_modules/.bin/mocha -R spec",
+    "testwatch": "./node_modules/.bin/mocha -w -R spec"
+  },
+  "author": "Les Orchard <me@lmorchard.com> (http://github.com/lmorchard)",
+  "license": "MPL-2.0",
+  "dependencies": {
+    "cheerio": "^0.17.0",
+    "clean-css": "^2.2.14",
+    "nopt": "^3.0.1"
+  },
+  "devDependencies": {
+    "chai": "^1.9.1",
+    "jshint": "^2.5.5",
+    "mocha": "^1.21.4"
+  }
+}
