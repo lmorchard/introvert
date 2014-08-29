@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "description": "Bundle web components into minimal JS libraries",
   "main": "index.js",
+  "bin": {
+    "introvert": "bin/introvert"
+  },
   "scripts": {
     "test": "./node_modules/.bin/mocha -R spec",
     "testwatch": "./node_modules/.bin/mocha -w -R spec"
