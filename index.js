@@ -3,60 +3,65 @@ var util = require('util');
 var fs = require('fs');
 var path = require('path');
 
+var _ = require('lodash');
 var cheerio = require('cheerio');
 var cleancss = require('clean-css');
 var url = require('url');
 
-function processIndexDocumentFile (filename) {
-  var imports = processImports(filename);
-};
+function buildLibraryFile (options) {
+  options = _.defaults(options || {}, {
+    input: [ './index.html' ],
+    output: './package.js',
+    dryrun: false
+  });
+  var src = BUNDLE_TMPL({
+    imports: processImports(options)
+  });
+  fs.writeFileSync(options.output, src, 'utf8');
+}
 
-function processImports (filename, $, rootPath, imports) {
+function processImports (options, /* optional: */ inputPaths, imports) {
+  var destPath = path.dirname(options.output);
 
-  filename = fs.realpathSync(filename);
-  var basePath = path.dirname(filename);
-  $ = $ || readDocument(filename);
-  rootPath = rootPath || basePath;
   imports = imports || {};
+  inputPaths = inputPaths || options.input;
 
-  $(constants.IMPORTS).each(function() {
-    var el = $(this);
-    el.remove();
+  _.forEach(inputPaths, function (inputPath) {
+    // Normalize input path to full path.
+    inputPath = path.resolve(inputPath);
 
-    var href = el.attr('href');
+    // Skip processing this input, if we already have it.
+    if (imports[inputPath]) { return; }
 
-    var importPath = fs.realpathSync(path.resolve(basePath, href));
-    var importBasePath = path.dirname(importPath);
-    var importDoc = readDocument(importPath);
+    var $ = readDocument(inputPath);
+    var srcPath = path.dirname(inputPath);
 
-    processImports(importPath, importDoc, rootPath, imports);
+    // Look for HTML imports. Remove them and queue as bundling dependencies.
+    var subPaths = [];
+    $(constants.IMPORTS).each(function() {
+      var el = $(this);
+      var href = el.attr('href');
+      el.remove();
+      subPaths.push(path.resolve(srcPath, href));
+    });
 
-    var out = { path: importPath };
-    out.js = extractScripts(importDoc, importBasePath);
-    inlineSheets(importDoc, importBasePath);
-    out.html = importDoc.html();
+    // Process any dependencies.
+    if (subPaths.length) {
+      processImports(options, subPaths, imports);
+    }
 
-    imports[importPath.replace(rootPath, '.')] = out;
+    // Process this component
+    inlineSheets(options, $, srcPath, destPath);
+    imports[inputPath] = {
+      js: extractScripts(options, $, srcPath),
+      html: $.html()
+    };
   });
 
   return imports;
 }
 
-function buildLibrary (imports) {
-  var out = [fs.readFileSync(__dirname + '/lib/preamble.js')];
-  for (var k in imports) {
-    var i = imports[k];
-    out.push("(function (_ownerDocument) {");
-    out.push("");
-    out.push(i.js);
-    out.push("})(__loadHTML(" + JSON.stringify(i.html) + "));");
-    out.push("");
-  }
-  out.push("})();");
-  return out.join("\n");
-}
-
-function extractScripts ($, dir) {
+function extractScripts (options, $, dir) {
   var scripts = [];
   $(constants.JS_SRC).each(function() {
     var el = $(this);
@@ -74,12 +79,12 @@ function extractScripts ($, dir) {
 }
 
 // inline relative linked stylesheets into <style> tags
-function inlineSheets($, basePath) {
+function inlineSheets(options, $, srcPath, destPath) {
   $('link[rel="stylesheet"]').each(function() {
     var el = $(this);
     var href = el.attr('href');
     if (href) {
-      var filepath = path.resolve(basePath, href);
+      var filepath = path.resolve(srcPath, href);
       // fix up paths in the stylesheet to be relative to the location of the style
       // var content = pathresolver.rewriteURL(path.dirname(filepath), outputPath, readFile(filepath));
       var content = readFile(filepath);
@@ -93,6 +98,9 @@ function inlineSheets($, basePath) {
     }
   });
 }
+
+var BUNDLE_TMPL_SRC = fs.readFileSync(__dirname + '/lib/bundle.tmpl.js');
+var BUNDLE_TMPL = _.template(BUNDLE_TMPL_SRC);
 
 var CHEERIO_READ = {
   decodeEntities: false
@@ -116,6 +124,6 @@ function readDocument (filename) {
 };
 
 module.exports = {
-  processImports: processImports,
-  buildLibrary: buildLibrary
+  buildLibraryFile: buildLibraryFile,
+  processImports: processImports
 };

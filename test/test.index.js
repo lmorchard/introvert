@@ -10,53 +10,34 @@ var introvert = require('../index.js');
 
 var FIXTURES_PATH = __dirname + '/fixtures';
 
-describe('play', function () {
+function f(name) {
+  return FIXTURES_PATH + '/' + name;
+}
 
-});
+var COMPONENTS_JS = f('js/components.js');
 
 describe('processImports', function () {
-
-  var imports;
-
-  before(function () {
-    imports = introvert.processImports(FIXTURES_PATH + '/index.html');
-  });
-
-  it('should find all the html dependencies', function () {
-    expect(imports).to.have.keys([
-      './x-app/x-app.html',
-      './path/to/x-dep.html'
-    ]);
-  });
-
-  it('should find all the linked scripts', function () {
-    expect(imports['./x-app/x-app.html'].js).to.contain('// x-app.js');
-    expect(imports['./path/to/x-dep.html'].js).to.contain('// x-dep.js');
-  });
-
-  it('should inline all the linked styles', function () {
-    expect(imports['./x-app/x-app.html'].html).to.contain('/* x-app.css */');
-    expect(imports['./path/to/x-dep.html'].html).to.contain('/* x-dep.css */');
-  });
-
-});
-
-describe('buildLibrary', function () {
-
-  var imports, library;
+  var library;
 
   before(function () {
-    imports = introvert.processImports(FIXTURES_PATH + '/index.html');
-    library = introvert.buildLibrary(imports);
+    try { fs.unlinkSync(COMPONENTS_JS); } catch (e) { }
+    introvert.buildLibraryFile({
+      input: [
+        f('components/x-app/x-app.html'),
+        f('components/x-alpha/x-alpha.html')
+      ],
+      output: COMPONENTS_JS
+    });
+    library = fs.readFileSync(COMPONENTS_JS, {encoding: 'utf8'});
+    expect(library).to.not.be.empty;
   });
 
   it('should contain all the HTML, JS, and CSS from dependencies', function () {
-    expect(library).to.contain('<!-- x-app.html -->');
-    expect(library).to.contain('<!-- x-dep.html -->');
-    expect(library).to.contain('// x-app.js');
-    expect(library).to.contain('// x-dep.js');
-    expect(library).to.contain('/* x-app.css */');
-    expect(library).to.contain('/* x-dep.css */');
+    ['dep', 'beta', 'alpha', 'app'].forEach(function (name) {
+      expect(library).to.contain('<!-- x-' + name + '.html -->');
+      expect(library).to.contain('// x-' + name + '.js');
+      expect(library).to.contain('/* x-' + name + '.css */');
+    });
   });
 
 });
