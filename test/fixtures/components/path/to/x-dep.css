@@ -1,1 +1,8 @@
 /* x-dep.css */
+div.dino {
+  background: url(../../../img/dino-head.png) no-repeat;
+  color: red;
+  width: 100px;
+  height: 100px;
+  text-indent: -999px;
+}

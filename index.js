@@ -2,22 +2,28 @@ var util = require('util');
 
 var fs = require('fs');
 var path = require('path');
+var url = require('url');
 
 var _ = require('lodash');
 var cheerio = require('cheerio');
 var cleancss = require('clean-css');
-var url = require('url');
+var datauri = require('datauri');
 
-function buildLibraryFile (options) {
+function buildLibrary(options) {
   options = _.defaults(options || {}, {
     input: [ './index.html' ],
     output: './package.js',
-    dryrun: false
+    'css-image-inlining': true,
+    'css-url-rewriting': true,
+    'file-output': true
   });
   var src = BUNDLE_TMPL({
     imports: processImports(options)
   });
-  fs.writeFileSync(options.output, src, 'utf8');
+  if (options['file-output']) {
+    fs.writeFileSync(options.output, src, 'utf8');
+  }
+  return src
 }
 
 function processImports (options, /* optional: */ inputPaths, imports) {
@@ -83,35 +89,46 @@ function inlineSheets(options, $, srcPath, destPath) {
   $('link[rel="stylesheet"]').each(function() {
     var el = $(this);
     var href = el.attr('href');
-    if (href) {
-      var filepath = path.resolve(srcPath, href);
-      // fix up paths in the stylesheet to be relative to the location of the style
-      // var content = pathresolver.rewriteURL(path.dirname(filepath), outputPath, readFile(filepath));
-      var content = readFile(filepath);
-      var styleDoc = cheerio.load('<style>' + content + '</style>', CHEERIO_READ);
-      // clone attributes
-      styleDoc('style').attr(el.attr());
-      // don't set href or rel on the <style>
-      styleDoc('style').attr('href', null);
-      styleDoc('style').attr('rel', null);
-      el.replaceWith(styleDoc.html());
-    }
+    if (!href) { return; }
+
+    var filepath = path.resolve(srcPath, href);
+    var content = rewriteCSS(options, srcPath, destPath, readFile(filepath));
+    var styleDoc = cheerio.load('<style>' + content + '</style>', CHEERIO_READ);
+
+    styleDoc('style').attr(el.attr());
+    styleDoc('style').attr('href', null);
+    styleDoc('style').attr('rel', null);
+    el.replaceWith(styleDoc.html());
   });
 }
 
-var BUNDLE_TMPL_SRC = fs.readFileSync(__dirname + '/lib/bundle.tmpl.js');
-var BUNDLE_TMPL = _.template(BUNDLE_TMPL_SRC);
+function rewriteCSS (options, srcPath, destPath, css) {
+  if (options['css-image-inlining']) {
+    css = css.replace(constants.URL, function(match) {
+      var urlpath = match.replace(/["']/g, "").slice(4, -1);
+      if (!constants.ABS_URL.test(urlpath)) {
+        urlpath = datauri(path.resolve(srcPath, urlpath));
+      }
+      return 'url(' + urlpath + ')';
+    });
+  }
+  if (options['css-url-rewriting']) {
+    css = css.replace(constants.URL, function(match) {
+      var path = match.replace(/["']/g, "").slice(4, -1);
+      path = rewriteRelPath(srcPath, destPath, path);
+      return 'url(' + path + ')';
+    });
+  }
+  return css;
+}
 
-var CHEERIO_READ = {
-  decodeEntities: false
-};
-
-var JS = 'script:not([type]), script[type="text/javascript"]';
-
-var constants = {
-  IMPORTS: 'link[rel="import"][href]',
-  JS: JS,
-  JS_SRC: JS.split(',').map(function(s){ return s + '[src]'; }).join(',')
+function rewriteRelPath(inputPath, outputPath, rel) {
+  if (constants.ABS_URL.test(rel)) {
+    return rel;
+  }
+  var abs = path.resolve(inputPath, rel);
+  var relPath = path.relative(outputPath, abs);
+  return relPath.split(path.sep).join('/');
 }
 
 function readFile (file) {
@@ -123,7 +140,30 @@ function readDocument (filename) {
   return cheerio.load(readFile(filename), CHEERIO_READ);
 };
 
+var BUNDLE_TMPL_SRC = fs.readFileSync(__dirname + '/lib/bundle.tmpl.js');
+var BUNDLE_TMPL = _.template(BUNDLE_TMPL_SRC);
+
+var CHEERIO_READ = {
+  decodeEntities: false
+};
+
+var JS = 'script:not([type]), script[type="text/javascript"]';
+var URL_ATTR = ['href', 'src', 'action', 'style'];
+var constants = {
+  IMPORTS: 'link[rel="import"][href]',
+  JS: JS,
+  JS_SRC: JS.split(',').map(function(s){ return s + '[src]'; }).join(','),
+  JS_INLINE: JS.split(',').map(function(s) { return s + ':not([src])'; }).join(','),
+  EOL: require('os').EOL,
+  ABS_URL: /(^data:)|(^http[s]?:)|(^\/)/,
+  URL: /url\([^)]*\)/g,
+  URL_ATTR: URL_ATTR,
+  URL_ATTR_SEL: '[' + URL_ATTR.join('],[') + ']',
+  URL_TEMPLATE: '{{.*}}',
+  CSS: 'style:not([type]), style[type="text/css"]'
+};
+
 module.exports = {
-  buildLibraryFile: buildLibraryFile,
+  buildLibrary: buildLibrary,
   processImports: processImports
 };
