@@ -10,6 +10,7 @@ var cleancss = require('clean-css');
 var datauri = require('datauri');
 
 function buildLibrary(options) {
+
   options = _.defaults(options || {}, {
     input: [ './index.html' ],
     output: './package.js',
@@ -17,8 +18,16 @@ function buildLibrary(options) {
     'css-url-rewriting': true,
     'file-output': true,
     'minify-css': true,
-    'minify-js': true
+    'minify-js': true,
+    'skip': []
   });
+
+  if (options.skip.length) {
+    options.skip = options.skip.map(function (item) {
+      return path.resolve(item);
+    });
+  }
+
   var src = BUNDLE_TMPL({
     imports: processImports(options)
   });
@@ -58,6 +67,9 @@ function processImports (options, /* optional: */ inputPaths, imports) {
 
     // Skip processing this input, if we already have it.
     if (imports[inputPath]) { return; }
+
+    // Skip any paths explicitly set to skip
+    if (options.skip.indexOf(inputPath) !== -1) { return; }
 
     var $ = readDocument(inputPath);
     var srcPath = path.dirname(inputPath);

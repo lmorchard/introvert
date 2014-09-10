@@ -17,14 +17,16 @@ function f(name) {
 describe('processImports', function () {
   var options;
 
-  before(function () {
+  beforeEach(function () {
     options = {
       input: [
         f('components/x-app/x-app.html'),
         f('components/x-alpha/x-alpha.html')
       ],
       output: f('components.js'),
-      'file-output': false
+      'file-output': false,
+      'minify-js': false,
+      'minify-css': false
     };
   });
 
@@ -36,6 +38,16 @@ describe('processImports', function () {
       expect(library).to.contain('// x-' + name + '.js');
       expect(library).to.contain('/* x-' + name + '.css */');
     });
+  });
+
+  it('should not contain skipped dependencies', function () {
+    options['skip'] = [f('components/path/to/x-dep.html')];
+    var library = introvert.buildLibrary(options);
+    expect(library).to.not.be.empty;
+    var name = 'dep';
+    expect(library).not.to.contain('<!-- x-' + name + '.html -->');
+    expect(library).not.to.contain('// x-' + name + '.js');
+    expect(library).not.to.contain('/* x-' + name + '.css */');
   });
 
   it('should by default inline all images in CSS', function () {
