@@ -15,11 +15,31 @@ function buildLibrary(options) {
     output: './package.js',
     'css-image-inlining': true,
     'css-url-rewriting': true,
-    'file-output': true
+    'file-output': true,
+    'minify-css': true,
+    'minify-js': true
   });
   var src = BUNDLE_TMPL({
     imports: processImports(options)
   });
+
+  if (options['minify-js']) {
+    var escodegen = require('escodegen');
+    var esprima = require('esprima');
+    var esmangle = require('esmangle');
+
+    src = escodegen.generate(esmangle.mangle(esprima.parse(src)), {
+      format: {
+        renumber: true,
+        hexadecimal: true,
+        escapeless: true,
+        compact: true,
+        semicolons: false,
+        parentheses: false
+      }
+    }) + ';';
+  }
+
   if (options['file-output']) {
     fs.writeFileSync(options.output, src, 'utf8');
   }
@@ -59,28 +79,45 @@ function processImports (options, /* optional: */ inputPaths, imports) {
     // Process this component
     inlineSheets(options, $, srcPath, destPath);
     imports[inputPath] = {
-      js: extractScripts(options, $, srcPath),
-      html: $.html()
+      path: path.relative(destPath, inputPath),
+      js: extractScripts(options, $, srcPath, destPath),
+      html: extractHTML(options, $, srcPath, destPath)
     };
   });
 
   return imports;
 }
 
+function extractHTML (options, $, srcPath, destPath) {
+  var src = $.html();
+  return src;
+}
+
 function extractScripts (options, $, dir) {
   var scripts = [];
+
   $(constants.JS_SRC).each(function() {
     var el = $(this);
     var src = el.attr('src');
-    if (src) {
-      var filepath = path.resolve(dir, src);
-      var content = readFile(filepath);
-      // NOTE: reusing UglifyJS's inline script printer (not exported from OutputStream :/)
-      content = content.replace(/<\x2fscript([>\/\t\n\f\r ])/gi, "<\\/script$1");
-      scripts.push(content);
-      el.remove();
-    }
+    if (!src) { return; }
+
+    var filepath = path.resolve(dir, src);
+    var content = readFile(filepath);
+
+    // NOTE: reusing UglifyJS's inline script printer (not exported from OutputStream :/)
+    content = content.replace(/<\x2fscript([>\/\t\n\f\r ])/gi, "<\\/script$1");
+
+    // HACK: Brute force sledgehammer to wedge the HTML imports into
+    // conventional Brick component JS
+    content = content.replace(
+      'var importDoc = currentScript.ownerDocument;',
+      'var importDoc = _ownerDocument;'
+    );
+
+    scripts.push(content);
+    el.remove();
   });
+
   return scripts.join("\n");
 }
 
@@ -103,10 +140,11 @@ function inlineSheets(options, $, srcPath, destPath) {
 }
 
 function rewriteCSS (options, srcPath, destPath, css) {
+  var RE_IS_IMG = /\.(jpg|png|gif)$/;
   if (options['css-image-inlining']) {
     css = css.replace(constants.URL, function(match) {
       var urlpath = match.replace(/["']/g, "").slice(4, -1);
-      if (!constants.ABS_URL.test(urlpath)) {
+      if (!constants.ABS_URL.test(urlpath) && RE_IS_IMG.test(urlpath)) {
         urlpath = datauri(path.resolve(srcPath, urlpath));
       }
       return 'url(' + urlpath + ')';
@@ -118,6 +156,10 @@ function rewriteCSS (options, srcPath, destPath, css) {
       path = rewriteRelPath(srcPath, destPath, path);
       return 'url(' + path + ')';
     });
+  }
+  if (options['minify-css']) {
+    var CleanCSS = require('clean-css');
+    css = new CleanCSS().minify(css)
   }
   return css;
 }

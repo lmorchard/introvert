@@ -14,8 +14,11 @@
   "license": "MPL-2.0",
   "dependencies": {
     "cheerio": "^0.17.0",
-    "clean-css": "^2.2.14",
+    "clean-css": "^2.2.15",
     "datauri": "^0.5.5",
+    "escodegen": "^1.4.1",
+    "esmangle": "^1.0.1",
+    "esprima": "^1.2.2",
     "lodash": "^2.4.1",
     "nopt": "^3.0.1"
   },

@@ -1,18 +1,13 @@
 (function () {
   // x-dep.js
+  var currentScript = document._currentScript || document.currentScript;
 
-  var importDoc;
-  if (typeof _ownerDocument !== 'undefined') {
-    importDoc = _ownerDocument;
-  } else {
-    var currentScript = document._currentScript || document.currentScript;
-    importDoc = currentScript.ownerDocument;
-  }
-   console.log('x-dep define');
+  console.log('x-dep define');
 
   var XDepElementPrototype = Object.create(HTMLElement.prototype);
 
   XDepElementPrototype.createdCallback = function () {
+    var importDoc = currentScript.ownerDocument;
     var template = importDoc.querySelector('template');
     shimShadowStyles(template.content.querySelectorAll('style'), 'x-dep');
     var shadowRoot = this.createShadowRoot();
