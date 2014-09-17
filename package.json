@@ -1,6 +1,6 @@
 {
   "name": "introvert",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Bundle web components into minimal JS libraries",
   "repository": "https://github.com/lmorchard/introvert.git",
   "main": "index.js",
