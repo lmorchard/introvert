@@ -9,8 +9,7 @@ var cheerio = require('cheerio');
 var cleancss = require('clean-css');
 var datauri = require('datauri');
 
-function buildLibrary(options) {
-
+function processOptions (options) {
   options = _.defaults(options || {}, {
     input: [ './index.html' ],
     output: './package.js',
@@ -19,7 +18,8 @@ function buildLibrary(options) {
     'file-output': true,
     'minify-css': true,
     'minify-js': true,
-    'skip': []
+    'skip': [],
+    'substitutions': {}
   });
 
   if (options.skip.length) {
@@ -27,6 +27,20 @@ function buildLibrary(options) {
       return path.resolve(item);
     });
   }
+
+  // Resolve all the path substitutions, if any.
+  options.substitutions = _.chain(options.substitutions)
+    .map(function (v, k) {
+      return [path.resolve(k), path.resolve(v)];
+    })
+    .zipObject()
+    .value();
+
+  return options;
+}
+
+function buildLibrary (options) {
+  options = processOptions(options);
 
   var src = BUNDLE_TMPL({
     imports: processImports(options)
@@ -73,7 +87,7 @@ function processImports (options, /* optional: */ inputPaths, imports) {
     // Skip any paths explicitly set to skip
     if (options.skip.indexOf(inputPath) !== -1) { return; }
 
-    var $ = readDocument(inputPath);
+    var $ = readDocument(inputPath, options);
     var srcPath = path.dirname(inputPath);
 
     // Look for HTML imports. Remove them and queue as bundling dependencies.
@@ -117,7 +131,7 @@ function extractScripts (options, $, dir) {
     if (!src) { return; }
 
     var filepath = path.resolve(dir, src);
-    var content = readFile(filepath);
+    var content = readFile(filepath, options);
 
     // NOTE: reusing UglifyJS's inline script printer (not exported from OutputStream :/)
     content = content.replace(/<\x2fscript([>\/\t\n\f\r ])/gi, "<\\/script$1");
@@ -144,7 +158,7 @@ function inlineSheets(options, $, srcPath, destPath) {
     if (!href) { return; }
 
     var filepath = path.resolve(srcPath, href);
-    var content = rewriteCSS(options, srcPath, destPath, readFile(filepath));
+    var content = rewriteCSS(options, srcPath, destPath, readFile(filepath, options));
     var styleDoc = cheerio.load('<style>' + content + '</style>', CHEERIO_READ);
 
     styleDoc('style').attr(el.attr());
@@ -189,13 +203,16 @@ function rewriteRelPath(inputPath, outputPath, rel) {
   return relPath.split(path.sep).join('/');
 }
 
-function readFile (file) {
+function readFile (file, options) {
+  if (file in options.substitutions) {
+    file = options.substitutions[file];
+  }
   var content = fs.readFileSync(file, 'utf8');
   return content.replace(/^\uFEFF/, '');
 }
 
-function readDocument (filename) {
-  return cheerio.load(readFile(filename), CHEERIO_READ);
+function readDocument (filename, options) {
+  return cheerio.load(readFile(filename, options), CHEERIO_READ);
 };
 
 var BUNDLE_TMPL_SRC = fs.readFileSync(__dirname + '/lib/bundle.tmpl.js');
