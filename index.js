@@ -52,6 +52,7 @@ function buildLibrary(options) {
   if (options['file-output']) {
     fs.writeFileSync(options.output, src, 'utf8');
   }
+
   return src
 }
 
@@ -62,6 +63,7 @@ function processImports (options, /* optional: */ inputPaths, imports) {
   inputPaths = inputPaths || options.input;
 
   _.forEach(inputPaths, function (inputPath) {
+
     // Normalize input path to full path.
     inputPath = path.resolve(inputPath);
 
@@ -95,6 +97,7 @@ function processImports (options, /* optional: */ inputPaths, imports) {
       js: extractScripts(options, $, srcPath, destPath),
       html: extractHTML(options, $, srcPath, destPath)
     };
+
   });
 
   return imports;
@@ -147,6 +150,7 @@ function inlineSheets(options, $, srcPath, destPath) {
     styleDoc('style').attr(el.attr());
     styleDoc('style').attr('href', null);
     styleDoc('style').attr('rel', null);
+
     el.replaceWith(styleDoc.html());
   });
 }
@@ -219,5 +223,6 @@ var constants = {
 
 module.exports = {
   buildLibrary: buildLibrary,
-  processImports: processImports
+  processImports: processImports,
+  gulp: require(__dirname + '/lib/gulp')
 };

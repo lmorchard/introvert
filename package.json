@@ -2,6 +2,7 @@
   "name": "introvert",
   "version": "0.0.1",
   "description": "Bundle web components into minimal JS libraries",
+  "repository": "https://github.com/lmorchard/introvert.git",
   "main": "index.js",
   "bin": {
     "introvert": "bin/introvert"
@@ -15,6 +16,7 @@
   "dependencies": {
     "cheerio": "^0.17.0",
     "clean-css": "^2.2.15",
+    "commander": "^2.3.0",
     "datauri": "^0.5.5",
     "escodegen": "^1.4.1",
     "esmangle": "^1.0.1",
@@ -26,5 +28,10 @@
     "chai": "^1.9.1",
     "jshint": "^2.5.5",
     "mocha": "^1.21.4"
+  },
+  "optionalDependencies": {
+    "gulp": "^3.8.8",
+    "gulp-util": "^3.0.1",
+    "through": "^2.3.6"
   }
 }
